@@ -1,0 +1,1755 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Снежки Деда Мороза — Новогодняя игра</title>
+  <style>
+    :root{
+      --bg1:#0b1533;
+      --bg2:#102a5c;
+      --panel:rgba(6,10,22,.55);
+      --panel2:rgba(255,255,255,.08);
+      --text:#eaf2ff;
+      --muted:rgba(234,242,255,.75);
+      --good:#7CFFB2;
+      --warn:#FFD37C;
+      --bad:#FF7C7C;
+      --accent:#7cc7ff;
+      --accent2:#b37cff;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; margin:0; }
+    body{
+      background:
+        radial-gradient(1200px 700px at 30% 25%, rgba(124,199,255,.18), transparent 55%),
+        radial-gradient(900px 600px at 75% 30%, rgba(179,124,255,.16), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Helvetica Neue";
+      overflow:hidden;
+      touch-action:none;
+    }
+
+    #wrap{ position:fixed; inset:0; display:flex; }
+    canvas{ width:100%; height:100%; display:block; }
+
+    /* HUD */
+    #hud{
+      position:fixed; left:12px; top:12px;
+      display:flex; flex-direction:column; gap:10px;
+      pointer-events:none;
+      max-width:min(520px, calc(100vw - 24px));
+    }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; }
+
+    .pill{
+      pointer-events:none;
+      background:var(--panel);
+      border:1px solid rgba(255,255,255,.12);
+      backdrop-filter: blur(8px);
+      border-radius:14px;
+      padding:10px 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+      display:flex; gap:10px; align-items:center;
+      min-height:42px;
+    }
+    .pill b{ font-weight:700; }
+    .muted{ color:var(--muted); }
+
+    .bar{
+      width:150px; height:10px; border-radius:999px;
+      background:rgba(255,255,255,.12);
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .bar > i{ display:block; height:100%; width:50%; background:linear-gradient(90deg, var(--accent), var(--accent2)); }
+    .bar.good > i{ background:linear-gradient(90deg, #79ffb8, #7cc7ff); }
+    .bar.warn > i{ background:linear-gradient(90deg, #ffd37c, #ff9f7c); }
+    .bar.bad  > i{ background:linear-gradient(90deg, #ff7c7c, #ff7cb9); }
+
+    /* Top-right help */
+    #tips{
+      position:fixed; right:12px; top:12px;
+      width:min(380px, calc(100vw - 24px));
+      pointer-events:none;
+    }
+    #tips .pill{ justify-content:space-between; }
+
+    /* Overlays */
+    .overlay{
+      position:fixed; inset:0;
+      display:none;
+      place-items:center;
+      padding:20px;
+      background: radial-gradient(900px 500px at 50% 20%, rgba(255,255,255,.08), transparent 60%),
+                  rgba(0,0,0,.35);
+      backdrop-filter: blur(6px);
+      z-index:10;
+    }
+    .overlay.show{ display:grid; }
+    .card{
+      width:min(760px, 100%);
+      background:linear-gradient(180deg, rgba(6,10,22,.72), rgba(6,10,22,.55));
+      border:1px solid rgba(255,255,255,.14);
+      border-radius:22px;
+      padding:18px;
+      box-shadow: 0 24px 70px rgba(0,0,0,.45);
+    }
+    .card h1{ margin:0 0 8px; font-size: clamp(22px, 4.2vw, 34px); }
+    .card p{ margin:8px 0; color:var(--muted); line-height:1.45; }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap:14px;
+      margin-top:14px;
+    }
+    @media (max-width: 840px){
+      .grid{ grid-template-columns:1fr; }
+    }
+
+    .panel{
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:18px;
+      padding:14px;
+    }
+    .panel h3{ margin:0 0 8px; font-size:16px; }
+    ul{ margin:8px 0 0 18px; padding:0; color:var(--muted); }
+    li{ margin:6px 0; }
+
+    .btns{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    button{
+      appearance:none; border:none;
+      border-radius:16px;
+      padding:12px 14px;
+      font-weight:700;
+      cursor:pointer;
+      color:#061019;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      box-shadow: 0 14px 30px rgba(0,0,0,.28);
+    }
+    button.secondary{
+      color:var(--text);
+      background: rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.14);
+      box-shadow:none;
+    }
+    button:active{ transform: translateY(1px); }
+
+    .kbd{
+      display:inline-flex; align-items:center; justify-content:center;
+      min-width:28px;
+      padding:2px 8px;
+      border-radius:10px;
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.14);
+      color:var(--text);
+      font-weight:800;
+      letter-spacing:.2px;
+    }
+
+    /* Mobile controls */
+    #mobile{
+      position:fixed; left:0; right:0; bottom:10px;
+      display:none;
+      justify-content:space-between;
+      padding:0 12px;
+      gap:10px;
+      pointer-events:none;
+      z-index:5;
+    }
+    .mcluster{ display:flex; gap:10px; pointer-events:auto; }
+    .mbtn{
+      width:60px; height:60px;
+      border-radius:18px;
+      background: rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.16);
+      color:var(--text);
+      font-weight:900;
+      display:grid;
+      place-items:center;
+      user-select:none;
+      -webkit-user-select:none;
+      touch-action:none;
+      box-shadow: 0 12px 30px rgba(0,0,0,.25);
+    }
+    .mbtn.big{ width:86px; }
+    .mbtn:active{ transform: translateY(1px); }
+
+    @media (pointer:coarse){
+      #mobile{ display:flex; }
+    }
+  </style>
+</head>
+<body>
+  <div id="wrap"><canvas id="c"></canvas></div>
+
+  <div id="hud">
+    <div class="row">
+      <div class="pill"><b>Очки:</b> <span id="score">0</span> <span class="muted">×</span><b id="mult">1.0</b></div>
+      <div class="pill"><b>Уровень:</b> <span id="lvl">1</span> <span class="muted">·</span> <b>Рекорд:</b> <span id="hi">0</span></div>
+    </div>
+    <div class="row">
+      <div class="pill">
+        <b>Дед Мороз</b>
+        <span class="muted">HP</span>
+        <span class="bar good" title="Здоровье"><i id="hpbar"></i></span>
+        <span id="hp">100</span>
+      </div>
+      <div class="pill">
+        <b>Ёлка</b>
+        <span class="muted">HP</span>
+        <span class="bar warn" title="Здоровье ёлки"><i id="treebar"></i></span>
+        <span id="tree">100</span>
+      </div>
+    </div>
+    <div class="row">
+      <div class="pill">
+        <b>Снег</b>
+        <span class="muted">для сугробов</span>
+        <span class="bar" title="Снег"><i id="snowbar"></i></span>
+        <span id="snow">0</span>
+      </div>
+      <div class="pill">
+        <b>Магия Мороза</b>
+        <span class="muted">F</span>
+        <span class="bar" title="Заряд"><i id="magicbar"></i></span>
+        <span id="magic">0</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="tips">
+    <div class="pill">
+      <span class="muted">Прицел: мышь/палец · Бросок: ЛКМ/Space · Пауза: P</span>
+      <span class="muted">Сугроб: Shift · Магия: F</span>
+    </div>
+  </div>
+
+  <div id="mobile" aria-hidden="true">
+    <div class="mcluster">
+      <div class="mbtn" id="left">◀</div>
+      <div class="mbtn" id="right">▶</div>
+    </div>
+    <div class="mcluster">
+      <div class="mbtn big" id="shoot">СНЕЖОК</div>
+      <div class="mbtn" id="wall">СУГРОБ</div>
+      <div class="mbtn" id="freeze">F</div>
+    </div>
+  </div>
+
+  <div class="overlay show" id="start">
+    <div class="card">
+      <h1>❄️ Снежки Деда Мороза</h1>
+      <p>
+        Защищай новогоднюю ёлку от шалунов-снеговиков и их снежной банды. Бей комбо, собирай подарки,
+        строь сугробы и запускай <b>Магию Мороза</b>, чтобы заморозить толпу.
+      </p>
+
+      <div class="grid">
+        <div class="panel">
+          <h3>Как играть</h3>
+          <ul>
+            <li>Двигайся: <span class="kbd">A</span>/<span class="kbd">D</span> или <span class="kbd">←</span>/<span class="kbd">→</span></li>
+            <li>Прицел: мышь/палец</li>
+            <li>Бросок снежка: ЛКМ (удерживай для заряда) или <span class="kbd">Space</span></li>
+            <li>Сугроб-щит: <span class="kbd">Shift</span> (тратит снег)</li>
+            <li>Магия Мороза: <span class="kbd">F</span> (копится от попаданий)</li>
+            <li>Пауза: <span class="kbd">P</span> · Сброс: <span class="kbd">R</span></li>
+          </ul>
+          <p class="muted">Совет: держи комбо — множитель растёт, а подарки летят чаще 😉</p>
+        </div>
+        <div class="panel">
+          <h3>Цель</h3>
+          <ul>
+            <li>Не дай ёлке потерять все HP</li>
+            <li>Уклоняйся от вражеских снежков</li>
+            <li>Собирай 🎁 (очки/лечение/снег), ❄️ (снег), 🎆 (супер-взрыв)</li>
+            <li>Каждые 30 секунд — новый уровень сложнее</li>
+          </ul>
+          <p class="muted">Есть рекорд (localStorage) — можно соревноваться с собой.</p>
+        </div>
+      </div>
+
+      <div class="btns">
+        <button id="play">Играть</button>
+        <button class="secondary" id="how">Показать управление</button>
+        <button class="secondary" id="mute">Звук: ВКЛ</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="pause">
+    <div class="card">
+      <h1>Пауза ⏸</h1>
+      <p class="muted">Нажми <span class="kbd">P</span>, чтобы продолжить. <span class="kbd">R</span> — перезапуск.</p>
+      <div class="btns">
+        <button id="resume">Продолжить</button>
+        <button class="secondary" id="restart">Перезапуск</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="gameover">
+    <div class="card">
+      <h1 id="overTitle">Конец!</h1>
+      <p id="overText" class="muted">—</p>
+      <div class="btns">
+        <button id="again">Ещё раз</button>
+        <button class="secondary" id="back">В меню</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ===== Utilities =====
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp  = (a, b, t) => a + (b - a) * t;
+  const rand  = (a, b) => a + Math.random() * (b - a);
+  const randi = (a, b) => (a + Math.floor(Math.random() * (b - a + 1)));
+  const dist2 = (ax, ay, bx, by) => {
+    const dx = ax - bx, dy = ay - by;
+    return dx*dx + dy*dy;
+  };
+
+  // ===== Canvas =====
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
+  let W = 0, H = 0, DPR = 1;
+  function resize(){
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = Math.floor(window.innerWidth);
+    H = Math.floor(window.innerHeight);
+    canvas.width  = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize', resize, { passive: true });
+  resize();
+
+  // ===== DOM =====
+  const el = (id) => document.getElementById(id);
+  const ui = {
+    score: el('score'), mult: el('mult'), lvl: el('lvl'), hi: el('hi'),
+    hp: el('hp'), hpbar: el('hpbar'),
+    tree: el('tree'), treebar: el('treebar'),
+    snow: el('snow'), snowbar: el('snowbar'),
+    magic: el('magic'), magicbar: el('magicbar'),
+    start: el('start'), pause: el('pause'), gameover: el('gameover'),
+    play: el('play'), how: el('how'), mute: el('mute'),
+    resume: el('resume'), restart: el('restart'),
+    again: el('again'), back: el('back'),
+    overTitle: el('overTitle'), overText: el('overText'),
+  };
+
+  // ===== Input =====
+  const input = {
+    left:false, right:false,
+    shoot:false, shootHeld:false,
+    wall:false,
+    freeze:false,
+    mouseX: W/2, mouseY: H/2,
+    pointerDown:false,
+    justPressedShoot:false,
+  };
+
+  function setPointerFromEvent(e){
+    const rect = canvas.getBoundingClientRect();
+    input.mouseX = (e.clientX - rect.left);
+    input.mouseY = (e.clientY - rect.top);
+  }
+
+  window.addEventListener('mousemove', (e)=>{ setPointerFromEvent(e); }, { passive:true });
+  window.addEventListener('mousedown', (e)=>{
+    if (e.button !== 0) return;
+    setPointerFromEvent(e);
+    input.pointerDown = true;
+    input.shootHeld = true;
+    input.justPressedShoot = true;
+  });
+  window.addEventListener('mouseup', (e)=>{
+    if (e.button !== 0) return;
+    input.pointerDown = false;
+    input.shootHeld = false;
+  });
+
+  // Touch
+  window.addEventListener('touchstart', (e)=>{
+    if (!e.touches || !e.touches.length) return;
+    const t = e.touches[0];
+    setPointerFromEvent(t);
+    input.pointerDown = true;
+    input.shootHeld = true;
+    input.justPressedShoot = true;
+  }, { passive:false });
+  window.addEventListener('touchmove', (e)=>{
+    if (!e.touches || !e.touches.length) return;
+    const t = e.touches[0];
+    setPointerFromEvent(t);
+  }, { passive:false });
+  window.addEventListener('touchend', ()=>{
+    input.pointerDown = false;
+    input.shootHeld = false;
+  }, { passive:true });
+
+  window.addEventListener('keydown', (e)=>{
+    const k = e.key.toLowerCase();
+    if (k === 'a' || e.key === 'ArrowLeft')  input.left = true;
+    if (k === 'd' || e.key === 'ArrowRight') input.right = true;
+    if (k === ' '){ input.shootHeld = true; input.justPressedShoot = true; }
+    if (k === 'shift') input.wall = true;
+    if (k === 'f') input.freeze = true;
+
+    if (k === 'p') togglePause();
+    if (k === 'r') hardRestart();
+
+    // prevent scroll on space
+    if (k === ' ' || e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
+  }, { passive:false });
+  window.addEventListener('keyup', (e)=>{
+    const k = e.key.toLowerCase();
+    if (k === 'a' || e.key === 'ArrowLeft')  input.left = false;
+    if (k === 'd' || e.key === 'ArrowRight') input.right = false;
+    if (k === ' ') input.shootHeld = false;
+    if (k === 'shift') input.wall = false;
+    if (k === 'f') input.freeze = false;
+  }, { passive:true });
+
+  // Mobile UI buttons
+  const mleft = el('left'), mright = el('right'), mshoot = el('shoot'), mwall = el('wall'), mfreeze = el('freeze');
+  function bindHold(btn, on, off){
+    const down = (e)=>{ e.preventDefault(); on(); };
+    const up = (e)=>{ e.preventDefault(); off(); };
+    btn.addEventListener('pointerdown', down);
+    btn.addEventListener('pointerup', up);
+    btn.addEventListener('pointercancel', up);
+    btn.addEventListener('pointerleave', up);
+  }
+  bindHold(mleft,  ()=>input.left=true,  ()=>input.left=false);
+  bindHold(mright, ()=>input.right=true, ()=>input.right=false);
+  bindHold(mshoot, ()=>{ input.shootHeld=true; input.justPressedShoot = true; }, ()=>input.shootHeld=false);
+  bindHold(mwall,  ()=>input.wall=true,  ()=>input.wall=false);
+  bindHold(mfreeze,()=>input.freeze=true,()=>input.freeze=false);
+
+  // ===== Simple audio (WebAudio) =====
+  let audioOn = true;
+  let ac = null;
+  function ensureAudio(){
+    if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+    if (ac.state === 'suspended') ac.resume().catch(()=>{});
+  }
+  function beep(type='sine', freq=440, dur=0.06, vol=0.08, detune=0){
+    if (!audioOn) return;
+    ensureAudio();
+    const t0 = ac.currentTime;
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    o.detune.value = detune;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol, t0 + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g).connect(ac.destination);
+    o.start(t0);
+    o.stop(t0 + dur + 0.02);
+  }
+  function noiseBurst(dur=0.09, vol=0.08){
+    if (!audioOn) return;
+    ensureAudio();
+    const sr = ac.sampleRate;
+    const len = Math.floor(sr * dur);
+    const buf = ac.createBuffer(1, len, sr);
+    const data = buf.getChannelData(0);
+    for (let i=0;i<len;i++) data[i] = (Math.random()*2-1) * (1 - i/len);
+    const src = ac.createBufferSource();
+    const g = ac.createGain();
+    g.gain.value = vol;
+    src.buffer = buf;
+    src.connect(g).connect(ac.destination);
+    src.start();
+  }
+
+  // ===== Game state =====
+  const STATE = { MENU:0, PLAY:1, PAUSE:2, OVER:3 };
+  let state = STATE.MENU;
+
+  const hiKey = 'ny_snowball_hi_v1';
+  let hi = Number(localStorage.getItem(hiKey) || '0');
+  ui.hi.textContent = String(hi);
+
+  // World constants
+  const WORLD = {
+    groundY: () => H - 90,
+    treeX: () => W/2,
+    treeY: () => H - 230,
+    treeR: 52,
+  };
+
+  // Entities
+  const entities = {
+    enemies: [],
+    shots: [],
+    enemyShots: [],
+    pickups: [],
+    walls: [],
+    particles: [],
+    fireworks: [],
+  };
+
+  // Player
+  const player = {
+    x: W/2,
+    y: H - 90,
+    r: 18,
+    vx: 0,
+    hp: 100,
+    maxHp: 100,
+    snow: 0,
+    maxSnow: 100,
+    magic: 0,
+    maxMagic: 100,
+    cd: 0,
+    charge: 0,
+    shield: 0,
+    hurtT: 0,
+  };
+
+  // Tree
+  const tree = {
+    hp: 100,
+    maxHp: 100,
+    hurtT: 0,
+  };
+
+  // Progress
+  let score = 0;
+  let mult = 1.0;
+  let combo = 0;
+  let comboTimer = 0;
+
+  let level = 1;
+  let levelTimer = 0;
+  const LEVEL_DURATION = 30;
+  let frozenT = 0; // global freeze
+
+  // Spawning
+  let spawnT = 0;
+
+  function resetWorld(){
+    entities.enemies.length = 0;
+    entities.shots.length = 0;
+    entities.enemyShots.length = 0;
+    entities.pickups.length = 0;
+    entities.walls.length = 0;
+    entities.particles.length = 0;
+    entities.fireworks.length = 0;
+
+    score = 0; mult = 1.0; combo = 0; comboTimer = 0;
+    level = 1; levelTimer = 0; spawnT = 0; frozenT = 0;
+
+    player.x = W/2; player.y = WORLD.groundY(); player.vx = 0;
+    player.hp = player.maxHp;
+    player.snow = 20;
+    player.magic = 0;
+    player.cd = 0;
+    player.charge = 0;
+    player.shield = 0;
+    player.hurtT = 0;
+
+    tree.hp = tree.maxHp;
+    tree.hurtT = 0;
+
+    // cozy snow wall starter
+    addWall(W/2, H-160, 120, 18, 55, true);
+
+    updateHUD();
+  }
+
+  // ===== Drawing helpers =====
+  function glowCircle(x,y,r, color, alpha=0.25){
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawText(x,y,text,size=14,alpha=1,align='left'){
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#eaf2ff';
+    ctx.textAlign = align;
+    ctx.font = `800 ${size}px ui-sans-serif, system-ui`;
+    ctx.fillText(text, x, y);
+    ctx.restore();
+  }
+
+  function drawSnow(){
+    // background snow drift + stars
+    ctx.save();
+    ctx.globalAlpha = 0.15;
+    for (let i=0;i<22;i++){
+      const x = (i*137 + (tAcc*10)) % (W+60) - 30;
+      const y = 40 + (i*53)% (H*0.45);
+      ctx.beginPath();
+      ctx.arc(x, y, 1.5 + (i%3), 0, Math.PI*2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // gentle falling snow
+    ctx.save();
+    ctx.globalAlpha = 0.18;
+    for (let i=0;i<90;i++){
+      const sp = 15 + (i%7)*7;
+      const x = (i*47 + tAcc*sp) % (W+50) - 25;
+      const y = (i*113 + tAcc*sp*0.8) % (H+60) - 30;
+      ctx.beginPath();
+      ctx.arc(x, y, 1 + (i%3)*0.6, 0, Math.PI*2);
+      ctx.fillStyle = '#eaf2ff';
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // ground
+    const gy = WORLD.groundY();
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,.08)';
+    ctx.beginPath();
+    ctx.moveTo(0, gy+60);
+    ctx.quadraticCurveTo(W*0.25, gy+10, W*0.5, gy+40);
+    ctx.quadraticCurveTo(W*0.75, gy+70, W, gy+30);
+    ctx.lineTo(W, H);
+    ctx.lineTo(0, H);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawTree(){
+    const x = WORLD.treeX();
+    const y = WORLD.treeY();
+
+    // glow
+    glowCircle(x,y,92,'rgba(124,199,255,1)',0.10);
+
+    // trunk
+    ctx.save();
+    ctx.fillStyle = 'rgba(190,120,70,.55)';
+    ctx.fillRect(x-10, y+36, 20, 34);
+
+    // layers
+    const hurt = tree.hurtT > 0 ? 1 : 0;
+    const baseColor = hurt ? 'rgba(255,124,124,.65)' : 'rgba(124,255,178,.25)';
+    ctx.fillStyle = baseColor;
+
+    for (let i=0;i<3;i++){
+      const w = 150 - i*38;
+      const h = 62;
+      const yy = y + i*34;
+      ctx.beginPath();
+      ctx.moveTo(x, yy-48);
+      ctx.lineTo(x - w/2, yy + h/2);
+      ctx.lineTo(x + w/2, yy + h/2);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // ornaments
+    ctx.globalAlpha = 0.7;
+    for (let i=0;i<10;i++){
+      const ang = i*0.63 + Math.sin(tAcc*1.2+i)*0.08;
+      const rr = 18 + (i%3)*10;
+      const ox = x + Math.cos(ang)*rr*2.2;
+      const oy = y + 8 + Math.sin(ang)*rr*1.4;
+      ctx.beginPath();
+      ctx.arc(ox, oy, 3.2, 0, Math.PI*2);
+      ctx.fillStyle = i%2===0 ? 'rgba(255,211,124,.95)' : 'rgba(179,124,255,.95)';
+      ctx.fill();
+    }
+
+    // star
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.beginPath();
+    const sy = y-86;
+    for (let i=0;i<10;i++){
+      const a = i*Math.PI/5 + tAcc*0.6;
+      const rr = (i%2===0)? 12:5;
+      const px = x + Math.cos(a)*rr;
+      const py = sy + Math.sin(a)*rr;
+      if (i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawPlayer(){
+    const x = player.x, y = player.y;
+
+    // shadow
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.ellipse(x, y+26, 20, 8, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+
+    // body (coat)
+    const wob = Math.sin(tAcc*6)*0.6;
+    ctx.save();
+    ctx.translate(x, y);
+
+    // aura shield
+    if (player.shield > 0){
+      const a = 0.22 + 0.08*Math.sin(tAcc*7);
+      glowCircle(0,0,34,'rgba(124,199,255,1)',a);
+      ctx.globalAlpha = 0.35 + 0.1*Math.sin(tAcc*9);
+      ctx.strokeStyle = 'rgba(124,199,255,.9)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 30, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // hurt flash
+    const hurt = player.hurtT > 0;
+
+    ctx.fillStyle = hurt ? 'rgba(255,124,124,.75)' : 'rgba(124,199,255,.22)';
+    ctx.beginPath();
+    ctx.roundRect(-18, -18+wob, 36, 50, 16);
+    ctx.fill();
+
+    // fur trim
+    ctx.fillStyle = 'rgba(255,255,255,.65)';
+    ctx.beginPath();
+    ctx.roundRect(-18, -18+wob, 36, 10, 10);
+    ctx.fill();
+
+    // belt
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = 'rgba(0,0,0,.6)';
+    ctx.fillRect(-18, 8+wob, 36, 7);
+    ctx.globalAlpha = 1;
+
+    // head
+    ctx.fillStyle = 'rgba(255,255,255,.60)';
+    ctx.beginPath();
+    ctx.arc(0, -30+wob, 13, 0, Math.PI*2);
+    ctx.fill();
+
+    // hat
+    ctx.fillStyle = 'rgba(179,124,255,.30)';
+    ctx.beginPath();
+    ctx.moveTo(-14, -34+wob);
+    ctx.quadraticCurveTo(0, -56+wob, 14, -34+wob);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.65)';
+    ctx.beginPath();
+    ctx.arc(10, -52+wob, 4.2, 0, Math.PI*2);
+    ctx.fill();
+
+    // staff
+    ctx.strokeStyle = 'rgba(255,211,124,.85)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(16, -10+wob);
+    ctx.lineTo(22, 26+wob);
+    ctx.stroke();
+
+    // aiming line
+    const dx = input.mouseX - x;
+    const dy = input.mouseY - y;
+    const ang = Math.atan2(dy, dx);
+    const aimLen = 34;
+    ctx.globalAlpha = 0.4;
+    ctx.strokeStyle = 'rgba(255,255,255,.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.lineTo(Math.cos(ang)*aimLen, Math.sin(ang)*aimLen);
+    ctx.stroke();
+
+    // charge indicator
+    if (state === STATE.PLAY){
+      const c = clamp(player.charge, 0, 1);
+      if (c > 0.01){
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = 'rgba(255,255,255,.65)';
+        ctx.beginPath();
+        ctx.arc(Math.cos(ang)*aimLen, Math.sin(ang)*aimLen, 5 + 10*c, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  function drawWall(w){
+    ctx.save();
+    ctx.globalAlpha = 0.95;
+    const hurt = w.hurtT > 0;
+    ctx.fillStyle = hurt ? 'rgba(255,124,124,.40)' : 'rgba(255,255,255,.14)';
+    ctx.strokeStyle = 'rgba(255,255,255,.20)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(w.x - w.w/2, w.y - w.h/2, w.w, w.h, 12);
+    ctx.fill();
+    ctx.stroke();
+
+    // lil snow bumps
+    ctx.globalAlpha = 0.25;
+    for (let i=0;i<6;i++){
+      const bx = w.x - w.w/2 + (i+0.5)*(w.w/6);
+      const by = w.y - w.h/2 + rand(2, w.h-2);
+      ctx.beginPath();
+      ctx.arc(bx, by, rand(2,4), 0, Math.PI*2);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+    }
+
+    // hp ticks
+    ctx.globalAlpha = 0.65;
+    ctx.fillStyle = 'rgba(255,255,255,.35)';
+    const p = clamp(w.hp / w.maxHp, 0, 1);
+    ctx.fillRect(w.x - w.w/2, w.y + w.h/2 + 6, w.w * p, 3);
+
+    ctx.restore();
+  }
+
+  function drawEnemy(e){
+    ctx.save();
+    ctx.translate(e.x, e.y);
+
+    const wob = Math.sin(tAcc*6 + e.seed)*0.7;
+    const frozen = frozenT > 0 || e.frozen > 0;
+
+    // shadow
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.ellipse(0, 18, 18, 6, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // body snowman
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = frozen ? 'rgba(124,199,255,.23)' : 'rgba(255,255,255,.16)';
+    ctx.beginPath();
+    ctx.arc(0, 6+wob, 14, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(0, -10+wob, 11, 0, Math.PI*2);
+    ctx.fill();
+
+    // face
+    ctx.globalAlpha = 0.65;
+    ctx.fillStyle = 'rgba(0,0,0,.55)';
+    ctx.beginPath();
+    ctx.arc(-4, -13+wob, 1.5, 0, Math.PI*2);
+    ctx.arc( 4, -13+wob, 1.5, 0, Math.PI*2);
+    ctx.fill();
+
+    // nose
+    ctx.globalAlpha = 0.75;
+    ctx.fillStyle = 'rgba(255,211,124,.75)';
+    ctx.beginPath();
+    ctx.moveTo(0, -10+wob);
+    ctx.lineTo(10, -8+wob);
+    ctx.lineTo(0, -6+wob);
+    ctx.closePath();
+    ctx.fill();
+
+    // scarf
+    ctx.globalAlpha = 0.7;
+    ctx.strokeStyle = 'rgba(179,124,255,.65)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, -2+wob, 10, 0.2, Math.PI-0.2);
+    ctx.stroke();
+
+    // hp ring for tough enemies
+    if (e.maxHp > 1){
+      const p = clamp(e.hp / e.maxHp, 0, 1);
+      ctx.globalAlpha = 0.7;
+      ctx.strokeStyle = 'rgba(255,255,255,.25)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, -10+wob, 18, -Math.PI/2, -Math.PI/2 + Math.PI*2*p);
+      ctx.stroke();
+    }
+
+    // boss crown
+    if (e.boss){
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = 'rgba(255,211,124,.65)';
+      ctx.beginPath();
+      ctx.moveTo(-10, -30+wob);
+      ctx.lineTo(-5, -40+wob);
+      ctx.lineTo(0, -30+wob);
+      ctx.lineTo(5, -40+wob);
+      ctx.lineTo(10, -30+wob);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // frozen overlay
+    if (frozen){
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle = 'rgba(124,199,255,.9)';
+      ctx.beginPath();
+      ctx.arc(0, -2+wob, 28, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  function drawShot(s, isEnemy=false){
+    ctx.save();
+    ctx.globalAlpha = 0.95;
+    ctx.fillStyle = isEnemy ? 'rgba(255,124,124,.45)' : 'rgba(255,255,255,.70)';
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(s.x - s.r*0.25, s.y - s.r*0.25, s.r*0.55, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawPickup(p){
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    const a = 0.55 + 0.25*Math.sin(tAcc*4 + p.seed);
+    ctx.globalAlpha = a;
+    if (p.kind === 'gift'){
+      glowCircle(0,0,18,'rgba(255,211,124,1)',0.18);
+      ctx.fillStyle = 'rgba(255,211,124,.70)';
+      ctx.beginPath();
+      ctx.roundRect(-10, -8, 20, 16, 6);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.55)';
+      ctx.fillRect(-2, -8, 4, 16);
+      ctx.fillRect(-10, -1, 20, 3);
+    } else if (p.kind === 'snow'){
+      glowCircle(0,0,16,'rgba(124,199,255,1)',0.16);
+      ctx.fillStyle = 'rgba(124,199,255,.55)';
+      ctx.beginPath();
+      for (let i=0;i<6;i++){
+        const ang = i*Math.PI/3 + tAcc*0.4;
+        ctx.moveTo(0,0);
+        ctx.lineTo(Math.cos(ang)*12, Math.sin(ang)*12);
+      }
+      ctx.strokeStyle = 'rgba(255,255,255,.55)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0,0,4,0,Math.PI*2);
+      ctx.fillStyle = 'rgba(255,255,255,.55)';
+      ctx.fill();
+    } else if (p.kind === 'firework'){
+      glowCircle(0,0,18,'rgba(179,124,255,1)',0.18);
+      ctx.fillStyle = 'rgba(179,124,255,.55)';
+      ctx.beginPath();
+      ctx.arc(0,0,10,0,Math.PI*2);
+      ctx.fill();
+      ctx.globalAlpha = 0.6;
+      for (let i=0;i<10;i++){
+        const ang = i*Math.PI/5 + tAcc*0.8;
+        ctx.strokeStyle = i%2? 'rgba(255,211,124,.8)' : 'rgba(124,199,255,.8)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(ang)*10, Math.sin(ang)*10);
+        ctx.lineTo(Math.cos(ang)*18, Math.sin(ang)*18);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  // ===== Effects =====
+  function addParticles(x,y,count=10,kind='snow',spread=1){
+    for (let i=0;i<count;i++){
+      entities.particles.push({
+        x, y,
+        vx: rand(-80,80)*spread,
+        vy: rand(-120,20)*spread,
+        r: rand(1.5, 3.6),
+        life: rand(0.25, 0.6),
+        t: 0,
+        kind,
+      });
+    }
+  }
+
+  function addFirework(x,y){
+    entities.fireworks.push({ x, y, t:0 });
+    // damage burst
+    for (const e of entities.enemies){
+      const d = Math.sqrt(dist2(x,y,e.x,e.y));
+      const dmg = clamp(6 - d/90, 0, 6);
+      if (dmg > 0){
+        hitEnemy(e, dmg, true);
+      }
+    }
+    // enemy shots cleared
+    entities.enemyShots.length = 0;
+    beep('triangle', 660, 0.08, 0.08);
+    beep('sine', 990, 0.10, 0.06);
+  }
+
+  // ===== Mechanics =====
+  function addWall(x,y,w,h,hp, starter=false){
+    entities.walls.push({
+      x, y,
+      w, h,
+      hp,
+      maxHp: hp,
+      hurtT: 0,
+      starter,
+    });
+  }
+
+  function spawnEnemy(){
+    // Enemy type scales
+    const bossChance = (level % 5 === 0) ? 0.10 : 0.0;
+    const isBoss = Math.random() < bossChance && entities.enemies.filter(e=>e.boss).length===0;
+
+    const e = {
+      x: rand(40, W-40),
+      y: rand(60, 130),
+      r: isBoss ? 26 : 18,
+      hp: isBoss ? 18 + level*1.2 : 1 + (level>=4 ? (Math.random()<0.25 ? 2 : 1) : 1),
+      maxHp: 1,
+      speed: isBoss ? 34 : rand(18, 40) + level*1.3,
+      shootCd: rand(0.6, 1.2) + (isBoss?0.1:0.25),
+      shootT: rand(0.0, 0.6),
+      seed: Math.random()*10,
+      frozen: 0,
+      boss: isBoss,
+      target: (Math.random() < 0.70) ? 'tree' : 'player',
+    };
+    e.maxHp = e.hp;
+    entities.enemies.push(e);
+  }
+
+  function spawnPickup(x,y){
+    // Weighted: gifts more when combo high
+    const r = Math.random();
+    let kind = 'gift';
+    const giftBias = clamp(0.35 + combo*0.02, 0.35, 0.62);
+    if (r < giftBias) kind = 'gift';
+    else if (r < giftBias + 0.30) kind = 'snow';
+    else kind = 'firework';
+
+    entities.pickups.push({
+      x, y,
+      vx: rand(-30, 30),
+      vy: rand(-90, -40),
+      r: 14,
+      kind,
+      t: 0,
+      life: 10,
+      seed: Math.random()*10,
+    });
+  }
+
+  function shootSnowball(charge=0){
+    const dx = input.mouseX - player.x;
+    const dy = input.mouseY - player.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = dx/len, ny = dy/len;
+
+    const c = clamp(charge, 0, 1);
+    const sp = lerp(520, 920, c);
+    const r  = lerp(6, 12, c);
+
+    entities.shots.push({
+      x: player.x + nx*22,
+      y: player.y + ny*22,
+      vx: nx*sp,
+      vy: ny*sp,
+      r,
+      dmg: lerp(1.0, 2.6, c),
+      life: 1.2,
+      t: 0,
+    });
+
+    noiseBurst(0.06, 0.06);
+    beep('triangle', lerp(520, 700, c), 0.05, 0.05);
+  }
+
+  function enemyShoot(e){
+    // choose target
+    let tx = WORLD.treeX(), ty = WORLD.treeY();
+    if (e.target === 'player' && Math.random() < 0.65){
+      tx = player.x; ty = player.y;
+    }
+    // slight lead
+    const dx = tx - e.x;
+    const dy = ty - e.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = dx/len, ny = dy/len;
+
+    const sp = (e.boss ? 460 : 420) + level*9;
+    entities.enemyShots.push({
+      x: e.x + nx*18,
+      y: e.y + ny*18,
+      vx: nx*sp,
+      vy: ny*sp,
+      r: e.boss ? 10 : 7,
+      dmg: e.boss ? 8 : 6,
+      life: 1.8,
+      t: 0,
+    });
+    beep('sawtooth', e.boss ? 210 : 260, 0.05, 0.03, rand(-40,40));
+  }
+
+  function hitEnemy(e, dmg, splash=false){
+    e.hp -= dmg;
+    addParticles(e.x, e.y, splash? 10 : 7, 'snow', splash?1.2:1);
+
+    // magic charge + combo
+    player.magic = clamp(player.magic + 7, 0, player.maxMagic);
+
+    combo += 1;
+    comboTimer = 1.6;
+    mult = clamp(1 + combo*0.08, 1, 4.0);
+
+    score += Math.floor((10 + (e.boss? 18:0)) * mult);
+
+    if (e.hp <= 0){
+      // drop chance
+      if (Math.random() < 0.55) spawnPickup(e.x, e.y);
+      if (e.boss || Math.random() < 0.12) addFireworkBurst(e.x, e.y);
+
+      // extra points
+      score += Math.floor((e.boss? 120 : 30) * mult);
+
+      // celebrate
+      beep('triangle', e.boss ? 320 : 420, 0.07, 0.06);
+      beep('sine', e.boss ? 520 : 620, 0.08, 0.05);
+
+      // remove
+      e.dead = true;
+    }
+  }
+
+  function damagePlayer(amount){
+    if (player.shield > 0){
+      // consume shield instead
+      player.shield = Math.max(0, player.shield - amount*0.06);
+      beep('sine', 900, 0.05, 0.04);
+      return;
+    }
+    player.hp = Math.max(0, player.hp - amount);
+    player.hurtT = 0.22;
+    combo = 0; mult = 1.0; comboTimer = 0;
+    addParticles(player.x, player.y, 10, 'snow', 1);
+    beep('square', 180, 0.06, 0.06);
+  }
+
+  function damageTree(amount){
+    tree.hp = Math.max(0, tree.hp - amount);
+    tree.hurtT = 0.25;
+    addParticles(WORLD.treeX(), WORLD.treeY(), 12, 'snow', 1);
+    beep('square', 140, 0.06, 0.05);
+  }
+
+  function addFireworkBurst(x,y){
+    // purely visual little burst, not the power pickup
+    entities.particles.push({
+      x, y,
+      vx:0, vy:0,
+      r: 0,
+      life: 0.001,
+      t: 0,
+      kind: 'burst',
+      burst: true,
+    });
+  }
+
+  function activateFreeze(){
+    if (player.magic < player.maxMagic) return false;
+    player.magic = 0;
+    frozenT = 3.2;
+    // nice sound
+    beep('triangle', 520, 0.10, 0.06);
+    beep('triangle', 390, 0.14, 0.05);
+    noiseBurst(0.12, 0.05);
+    // particles around
+    addParticles(player.x, player.y-10, 24, 'snow', 1.2);
+    return true;
+  }
+
+  function collect(p){
+    if (p.kind === 'gift'){
+      score += Math.floor(50 * mult);
+      // heal sometimes
+      if (Math.random() < 0.55) player.hp = clamp(player.hp + 10, 0, player.maxHp);
+      // shield sometimes
+      if (Math.random() < 0.35) player.shield = Math.min(1.0, player.shield + 0.35);
+      player.snow = clamp(player.snow + 18, 0, player.maxSnow);
+      beep('sine', 740, 0.06, 0.07);
+      beep('triangle', 980, 0.07, 0.05);
+      addParticles(p.x, p.y, 12, 'snow', 1);
+    }
+    if (p.kind === 'snow'){
+      player.snow = clamp(player.snow + 24, 0, player.maxSnow);
+      score += Math.floor(20 * mult);
+      beep('sine', 560, 0.06, 0.05);
+      addParticles(p.x, p.y, 10, 'snow', 1);
+    }
+    if (p.kind === 'firework'){
+      score += Math.floor(35 * mult);
+      // immediate screen boom at tree
+      addFirework(WORLD.treeX(), WORLD.treeY());
+      addParticles(p.x, p.y, 16, 'snow', 1.1);
+    }
+    p.dead = true;
+  }
+
+  function placeWall(){
+    const cost = 30;
+    if (player.snow < cost) return false;
+    // avoid spam: one wall per ~0.35 sec using cd
+    if (player.wallCd && player.wallCd > 0) return false;
+    player.snow -= cost;
+    player.wallCd = 0.35;
+
+    const x = clamp(player.x, 60, W-60);
+    const y = WORLD.groundY() - 60;
+    addWall(x, y, 130, 18, 55, false);
+    beep('triangle', 300, 0.07, 0.05);
+    noiseBurst(0.08, 0.05);
+    addParticles(x, y, 10, 'snow', 1);
+    return true;
+  }
+
+  // ===== Update =====
+  let last = performance.now();
+  let tAcc = 0;
+
+  function updateHUD(){
+    ui.score.textContent = String(score);
+    ui.mult.textContent = mult.toFixed(1);
+    ui.lvl.textContent = String(level);
+
+    ui.hp.textContent = String(Math.ceil(player.hp));
+    ui.tree.textContent = String(Math.ceil(tree.hp));
+
+    ui.snow.textContent = String(Math.floor(player.snow));
+    ui.magic.textContent = String(Math.floor(player.magic));
+
+    const hpP = clamp(player.hp/player.maxHp, 0, 1);
+    ui.hpbar.style.width = (hpP*100).toFixed(1) + '%';
+    const tbP = clamp(tree.hp/tree.maxHp, 0, 1);
+    ui.treebar.style.width = (tbP*100).toFixed(1) + '%';
+    const snP = clamp(player.snow/player.maxSnow, 0, 1);
+    ui.snowbar.style.width = (snP*100).toFixed(1) + '%';
+    const mgP = clamp(player.magic/player.maxMagic, 0, 1);
+    ui.magicbar.style.width = (mgP*100).toFixed(1) + '%';
+  }
+
+  function tick(dt){
+    tAcc += dt;
+
+    // timers
+    if (player.cd > 0) player.cd -= dt;
+    if (player.hurtT > 0) player.hurtT -= dt;
+    if (tree.hurtT > 0) tree.hurtT -= dt;
+    if (player.wallCd && player.wallCd > 0) player.wallCd -= dt;
+
+    if (comboTimer > 0){
+      comboTimer -= dt;
+      if (comboTimer <= 0){
+        combo = 0;
+        mult = 1.0;
+      }
+    }
+
+    if (frozenT > 0) frozenT -= dt;
+
+    // Level progression
+    levelTimer += dt;
+    if (levelTimer >= LEVEL_DURATION){
+      levelTimer = 0;
+      level += 1;
+      // tiny heal as reward
+      player.hp = clamp(player.hp + 8, 0, player.maxHp);
+      // a gift
+      spawnPickup(rand(80, W-80), rand(H*0.35, H*0.55));
+      beep('triangle', 520, 0.10, 0.05);
+      beep('triangle', 780, 0.10, 0.05);
+    }
+
+    // Spawn enemies
+    const base = 1.25;
+    const rate = clamp(base - level*0.05, 0.35, 1.2);
+    spawnT -= dt;
+    if (spawnT <= 0){
+      spawnT = rate * rand(0.8, 1.15);
+      spawnEnemy();
+      if (level >= 3 && Math.random() < 0.35) spawnEnemy();
+    }
+
+    // Player movement
+    const accel = 2200;
+    const maxSp = 420;
+    let ax = 0;
+    if (input.left) ax -= accel;
+    if (input.right) ax += accel;
+    player.vx = lerp(player.vx, player.vx + ax*dt, 0.45);
+    player.vx *= Math.pow(0.0008, dt); // friction
+    player.vx = clamp(player.vx, -maxSp, maxSp);
+    player.x += player.vx * dt;
+    player.y = WORLD.groundY();
+    player.x = clamp(player.x, 22, W-22);
+
+    // Player actions
+    if (input.shootHeld) player.charge = clamp(player.charge + dt*1.25, 0, 1);
+    else player.charge = lerp(player.charge, 0, clamp(dt*10, 0, 1));
+
+    // shoot on press OR release for mouse
+    if (input.justPressedShoot && player.cd <= 0){
+      // allow quick tap
+      shootSnowball(player.charge);
+      player.cd = 0.18;
+    }
+    input.justPressedShoot = false;
+
+    // If mouse released, also shoot (so charge works)
+    // We approximate by: if not held now but was held last frame handled by cd
+
+    if (input.wall){
+      placeWall();
+    }
+
+    if (input.freeze){
+      activateFreeze();
+    }
+
+    // Shots update
+    for (const s of entities.shots){
+      s.t += dt;
+      s.x += s.vx*dt;
+      s.y += s.vy*dt;
+      s.vx *= Math.pow(0.15, dt);
+      s.vy *= Math.pow(0.15, dt);
+      // slight gravity
+      s.vy += 40*dt;
+      if (s.t > s.life || s.x < -50 || s.x > W+50 || s.y < -70 || s.y > H+70) s.dead = true;
+
+      // collide enemies
+      for (const e of entities.enemies){
+        if (e.dead) continue;
+        const rr = (s.r + e.r);
+        if (dist2(s.x,s.y,e.x,e.y) <= rr*rr){
+          hitEnemy(e, s.dmg, false);
+          s.dead = true;
+          break;
+        }
+      }
+    }
+
+    // Enemy shots update
+    for (const s of entities.enemyShots){
+      s.t += dt;
+      s.x += s.vx*dt;
+      s.y += s.vy*dt;
+      s.vx *= Math.pow(0.22, dt);
+      s.vy *= Math.pow(0.22, dt);
+      s.vy += 55*dt;
+      if (s.t > s.life || s.x < -60 || s.x > W+60 || s.y < -80 || s.y > H+80) s.dead = true;
+
+      // collide walls
+      for (const w of entities.walls){
+        if (w.hp <= 0) continue;
+        const left = w.x - w.w/2, right = w.x + w.w/2;
+        const top = w.y - w.h/2, bottom = w.y + w.h/2;
+        if (s.x > left && s.x < right && s.y > top && s.y < bottom){
+          w.hp -= s.dmg;
+          w.hurtT = 0.18;
+          addParticles(s.x, s.y, 8, 'snow', 1);
+          s.dead = true;
+          if (w.hp <= 0){
+            addParticles(w.x, w.y, 20, 'snow', 1.3);
+            beep('square', 110, 0.07, 0.05);
+          }
+          break;
+        }
+      }
+
+      // collide player
+      if (!s.dead){
+        const rr = s.r + player.r;
+        if (dist2(s.x,s.y,player.x,player.y) <= rr*rr){
+          damagePlayer(s.dmg);
+          s.dead = true;
+        }
+      }
+
+      // collide tree
+      if (!s.dead){
+        const tx = WORLD.treeX(), ty = WORLD.treeY();
+        const rr = s.r + WORLD.treeR;
+        if (dist2(s.x,s.y,tx,ty) <= rr*rr){
+          damageTree(s.dmg);
+          s.dead = true;
+        }
+      }
+    }
+
+    // Enemies update
+    for (const e of entities.enemies){
+      if (e.dead) continue;
+      const frozen = frozenT > 0 || e.frozen > 0;
+      if (e.frozen > 0) e.frozen -= dt;
+
+      // drift towards tree line
+      const targetX = e.target === 'player' ? player.x : WORLD.treeX();
+      const steer = clamp((targetX - e.x) * 0.35, -1, 1);
+
+      if (!frozen){
+        e.x += steer * e.speed * dt;
+        e.y += (e.boss ? 8 : 12) * dt * (1 + level*0.07);
+      } else {
+        e.x += steer * e.speed * dt * 0.15;
+      }
+
+      e.x = clamp(e.x, 26, W-26);
+
+      // shoot
+      e.shootT -= dt * (frozen ? 0.35 : 1);
+      if (e.shootT <= 0){
+        e.shootT = e.shootCd * rand(0.85, 1.2);
+        if (!frozen) enemyShoot(e);
+      }
+
+      // bump tree if too close
+      const tx = WORLD.treeX(), ty = WORLD.treeY();
+      const rr = e.r + WORLD.treeR;
+      if (dist2(e.x,e.y,tx,ty) <= rr*rr){
+        damageTree(e.boss ? 12 : 8);
+        e.dead = true;
+        addParticles(e.x,e.y, 18, 'snow', 1.3);
+        continue;
+      }
+
+      // bump player
+      const pr = e.r + player.r;
+      if (dist2(e.x,e.y,player.x,player.y) <= pr*pr){
+        damagePlayer(e.boss ? 14 : 10);
+        e.dead = true;
+        addParticles(e.x,e.y, 18, 'snow', 1.3);
+        continue;
+      }
+
+      // remove if out
+      if (e.y > H+80) e.dead = true;
+    }
+
+    // Pickups update
+    for (const p of entities.pickups){
+      p.t += dt;
+      p.vy += 160*dt;
+      p.x += p.vx*dt;
+      p.y += p.vy*dt;
+      p.vx *= Math.pow(0.25, dt);
+      p.vy *= Math.pow(0.25, dt);
+      p.life -= dt;
+
+      // bounce on ground
+      const gy = WORLD.groundY();
+      if (p.y > gy-6){
+        p.y = gy-6;
+        p.vy *= -0.35;
+      }
+
+      // collect
+      const rr = p.r + player.r;
+      if (dist2(p.x,p.y,player.x,player.y) <= rr*rr){
+        collect(p);
+      }
+
+      if (p.life <= 0) p.dead = true;
+    }
+
+    // Walls update
+    for (const w of entities.walls){
+      if (w.hurtT > 0) w.hurtT -= dt;
+    }
+
+    // Particles
+    for (const p of entities.particles){
+      p.t += dt;
+      p.x += p.vx*dt;
+      p.y += p.vy*dt;
+      p.vy += 220*dt;
+      p.vx *= Math.pow(0.05, dt);
+      p.vy *= Math.pow(0.05, dt);
+      if (p.t >= p.life) p.dead = true;
+    }
+
+    // Fireworks visuals
+    for (const f of entities.fireworks){
+      f.t += dt;
+      if (f.t > 0.6) f.dead = true;
+    }
+
+    // Cleanup
+    for (const k of Object.keys(entities)){
+      entities[k] = entities[k].filter(o => !o.dead && !(o.hp<=0));
+    }
+
+    // Passive snow regen
+    player.snow = clamp(player.snow + dt*2.2, 0, player.maxSnow);
+
+    // end conditions
+    if (tree.hp <= 0 || player.hp <= 0){
+      endGame(tree.hp <= 0 ? 'Ёлку занесли снежками…' : 'Дед Мороз выбыл из боя…');
+    }
+
+    // high score
+    if (score > hi){
+      hi = score;
+      localStorage.setItem(hiKey, String(hi));
+      ui.hi.textContent = String(hi);
+    }
+
+    updateHUD();
+  }
+
+  // ===== Render =====
+  function render(){
+    ctx.clearRect(0,0,W,H);
+
+    drawSnow();
+    drawTree();
+
+    // global freeze tint
+    if (frozenT > 0){
+      const a = clamp(frozenT/3.2, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = 0.10 * a;
+      ctx.fillStyle = 'rgba(124,199,255,1)';
+      ctx.fillRect(0,0,W,H);
+      ctx.restore();
+    }
+
+    // fireworks visuals
+    for (const f of entities.fireworks){
+      const p = clamp(f.t/0.6, 0, 1);
+      const r = lerp(10, 220, p);
+      ctx.save();
+      ctx.globalAlpha = (1-p) * 0.18;
+      ctx.strokeStyle = 'rgba(179,124,255,.9)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(f.x,f.y,r,0,Math.PI*2);
+      ctx.stroke();
+      ctx.globalAlpha = (1-p) * 0.14;
+      ctx.strokeStyle = 'rgba(255,211,124,.9)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(f.x,f.y,r*0.7,0,Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // walls
+    for (const w of entities.walls) drawWall(w);
+
+    // shots
+    for (const s of entities.shots) drawShot(s,false);
+    for (const s of entities.enemyShots) drawShot(s,true);
+
+    // enemies
+    for (const e of entities.enemies) drawEnemy(e);
+
+    // pickups
+    for (const p of entities.pickups) drawPickup(p);
+
+    // particles
+    for (const p of entities.particles){
+      if (p.burst){
+        // spark lines
+        const c = 12;
+        for (let i=0;i<c;i++){
+          const ang = i*Math.PI*2/c + tAcc*0.8;
+          ctx.save();
+          ctx.globalAlpha = 0.35;
+          ctx.strokeStyle = i%2? 'rgba(255,211,124,.9)' : 'rgba(124,199,255,.9)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x + Math.cos(ang)*26, p.y + Math.sin(ang)*26);
+          ctx.stroke();
+          ctx.restore();
+        }
+        continue;
+      }
+
+      const lifeP = 1 - clamp(p.t/p.life, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = lifeP * 0.75;
+      ctx.fillStyle = p.kind === 'snow' ? 'rgba(255,255,255,.85)' : 'rgba(255,255,255,.75)';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // player last
+    drawPlayer();
+
+    // mini info bottom center
+    if (state === STATE.PLAY){
+      const remain = Math.ceil(LEVEL_DURATION - levelTimer);
+      const msg = `До следующего уровня: ${remain}s · Комбо: ${combo}`;
+      drawText(W/2, H-16, msg, 14, 0.55, 'center');
+    }
+  }
+
+  // ===== Loop =====
+  function loop(now){
+    const dt = clamp((now - last)/1000, 0, 0.033);
+    last = now;
+
+    if (state === STATE.PLAY){
+      tick(dt);
+    }
+    render();
+
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // ===== State transitions =====
+  function show(node, yes){
+    node.classList.toggle('show', !!yes);
+  }
+
+  function startGame(){
+    resetWorld();
+    state = STATE.PLAY;
+    show(ui.start, false);
+    show(ui.pause, false);
+    show(ui.gameover, false);
+    updateHUD();
+  }
+
+  function togglePause(){
+    if (state === STATE.MENU || state === STATE.OVER) return;
+    if (state === STATE.PLAY){
+      state = STATE.PAUSE;
+      show(ui.pause, true);
+    } else if (state === STATE.PAUSE){
+      state = STATE.PLAY;
+      show(ui.pause, false);
+      // avoid accidental shots
+      input.justPressedShoot = false;
+    }
+  }
+
+  function endGame(reason){
+    state = STATE.OVER;
+    show(ui.gameover, true);
+    show(ui.pause, false);
+
+    const win = score >= 1500 && tree.hp > 0;
+    ui.overTitle.textContent = win ? '🎉 Победа!' : 'Конец игры';
+    ui.overText.textContent = `${reason}  Твой счёт: ${score}.  Уровень: ${level}.  Рекорд: ${hi}.`;
+
+    // finale fireworks
+    for (let i=0;i<4;i++){
+      setTimeout(()=>addFirework(rand(W*0.2,W*0.8), rand(H*0.18,H*0.45)), i*110);
+    }
+  }
+
+  function hardRestart(){
+    if (state === STATE.PLAY || state === STATE.PAUSE || state === STATE.OVER){
+      startGame();
+    }
+  }
+
+  // ===== UI buttons =====
+  ui.play.addEventListener('click', ()=>{ ensureAudio(); startGame(); });
+  ui.resume.addEventListener('click', ()=>{ togglePause(); });
+  ui.restart.addEventListener('click', ()=>{ startGame(); });
+  ui.again.addEventListener('click', ()=>{ startGame(); });
+  ui.back.addEventListener('click', ()=>{ state = STATE.MENU; show(ui.gameover,false); show(ui.start,true); });
+
+  ui.how.addEventListener('click', ()=>{
+    // gentle bounce highlight: just flash tips
+    const tips = document.getElementById('tips');
+    tips.style.transform = 'scale(1.02)';
+    tips.style.transition = 'transform .15s ease';
+    setTimeout(()=>tips.style.transform='scale(1)', 160);
+  });
+
+  ui.mute.addEventListener('click', ()=>{
+    audioOn = !audioOn;
+    ui.mute.textContent = `Звук: ${audioOn ? 'ВКЛ' : 'ВЫКЛ'}`;
+    if (audioOn) beep('sine', 660, 0.06, 0.05);
+  });
+
+  // Autopause on tab blur
+  window.addEventListener('blur', ()=>{
+    if (state === STATE.PLAY){
+      state = STATE.PAUSE;
+      show(ui.pause, true);
+    }
+  });
+
+  // One-time: charge-release shooting for mouse
+  let prevHeld = false;
+  function postInput(){
+    if (state === STATE.PLAY){
+      if (prevHeld && !input.shootHeld && player.cd <= 0){
+        // release shot
+        shootSnowball(player.charge);
+        player.cd = 0.20;
+      }
+    }
+    prevHeld = input.shootHeld;
+    requestAnimationFrame(postInput);
+  }
+  requestAnimationFrame(postInput);
+
+  // Ensure roundRect exists (Safari old)
+  if (!CanvasRenderingContext2D.prototype.roundRect){
+    CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r){
+      r = Math.min(r, w/2, h/2);
+      this.beginPath();
+      this.moveTo(x+r, y);
+      this.arcTo(x+w, y, x+w, y+h, r);
+      this.arcTo(x+w, y+h, x, y+h, r);
+      this.arcTo(x, y+h, x, y, r);
+      this.arcTo(x, y, x+w, y, r);
+      this.closePath();
+      return this;
+    };
+  }
+
+  // Start in menu
+  resetWorld();
+})();
+</script>
+</body>
+</html>
